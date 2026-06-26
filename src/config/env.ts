@@ -1,4 +1,7 @@
-import "dotenv/config";
+import { config } from "dotenv";
+
+config();
+config({ path: ".env.local", override: true });
 
 function readPort(value: string | undefined) {
   if (!value) {
