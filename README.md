@@ -39,7 +39,7 @@ curl http://localhost:3000/health
 
 ## 阿里云日志调试接口
 
-当前先接入阿里云日志服务的 `ListProject` API，不接 MCP。
+这里是阿里云日志服务 `ListProject` API 的 HTTP 调试入口，方便本地直接用浏览器或 `curl` 验证。
 
 先复制本地环境变量文件：
 
@@ -53,7 +53,6 @@ cp .env.example .env.local
 ALIYUN_LOG_ACCESS_KEY_ID=
 ALIYUN_LOG_ACCESS_KEY_SECRET=
 ALIYUN_LOG_REGION=cn-hangzhou
-ALIYUN_LOG_DEFAULT_PROJECT_NAME=
 ```
 
 `.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
@@ -70,13 +69,54 @@ npm run dev
 curl "http://localhost:3000/aliyun-log/projects"
 ```
 
-如果请求里不传 `projectName`，接口会默认使用 `ALIYUN_LOG_DEFAULT_PROJECT_NAME`。例如你配置了 `k8s-dev`，上面的请求等价于按 `k8s-dev` 模糊过滤。
+如果请求里不传 `projectName`，接口会查询当前区域下全部 Project。
 
 按 Project 名称模糊过滤：
 
 ```bash
 curl "http://localhost:3000/aliyun-log/projects?projectName=k8s"
 ```
+
+## MCP 服务
+
+当前提供一个 Streamable HTTP MCP 服务，路径是：
+
+```text
+POST /mcp
+```
+
+MCP 使用 stateful Streamable HTTP：
+
+- 初始化请求会返回 `mcp-session-id`。
+- 后续 `POST /mcp` 需要带同一个 `mcp-session-id`。
+- `GET /mcp` 使用同一个 `mcp-session-id` 建立 SSE 长连接，用于接收服务端通知。
+- `DELETE /mcp` 使用同一个 `mcp-session-id` 终止会话。
+
+当前先只注册一个工具：
+
+```text
+aliyun_log_list_projects
+```
+
+这个工具复用阿里云日志 `ListProject` API，用来查询当前账号在指定区域下可访问的 Project。
+
+启动服务：
+
+```bash
+npm run dev
+```
+
+工具参数：
+
+```json
+{
+  "projectName": "k8s",
+  "offset": 0,
+  "size": 100
+}
+```
+
+`projectName` 不传时，会查询当前区域下全部 Project。工具执行期间会发送开始和完成两条 logging notification，MCP 客户端建立 `GET /mcp` 长连接后可以收到这些服务端通知。
 
 ## 常用命令
 
