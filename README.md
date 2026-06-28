@@ -77,6 +77,18 @@ curl "http://localhost:3000/aliyun-log/projects"
 curl "http://localhost:3000/aliyun-log/projects?projectName=k8s"
 ```
 
+查询某个 Project 下的 Logstore：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores"
+```
+
+按 Logstore 名称模糊过滤：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores?logstoreName=test"
+```
+
 ## MCP 服务
 
 当前提供一个 Streamable HTTP MCP 服务，路径是：
@@ -96,6 +108,7 @@ MCP 使用 stateful Streamable HTTP：
 
 ```text
 aliyun_log_list_projects
+aliyun_log_list_logstores
 ```
 
 这个工具复用阿里云日志 `ListProject` API，用来查询当前账号在指定区域下可访问的 Project。
@@ -117,6 +130,17 @@ npm run dev
 ```
 
 `projectName` 不传时，会查询当前区域下全部 Project。工具执行期间会发送开始和完成两条 logging notification，MCP 客户端建立 `GET /mcp` 长连接后可以收到这些服务端通知。
+
+`aliyun_log_list_logstores` 工具参数：
+
+```json
+{
+  "projectName": "k8s-dev",
+  "logstoreName": "test",
+  "offset": 0,
+  "size": 200
+}
+```
 
 ## 常用命令
 

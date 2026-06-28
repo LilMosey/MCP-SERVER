@@ -15,6 +15,16 @@ interface McpSession {
 
 const sessions = new Map<string, McpSession>();
 
+async function cleanupSession(sessionId: string | undefined) {
+  if (!sessionId) {
+    return;
+  }
+
+  const session = sessions.get(sessionId);
+  sessions.delete(sessionId);
+  await session?.server.close();
+}
+
 function readSessionId(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
     return value[0];
@@ -59,15 +69,14 @@ mcpRouter.post("/", async (request, response) => {
           server,
           transport
         });
+      },
+      onsessionclosed: async (closedSessionId) => {
+        await cleanupSession(closedSessionId);
       }
     });
 
     transport.onclose = () => {
-      const closedSessionId = transport.sessionId;
-      if (closedSessionId) {
-        sessions.delete(closedSessionId);
-      }
-      server.close();
+      void cleanupSession(transport.sessionId);
     };
 
     await server.connect(transport);
