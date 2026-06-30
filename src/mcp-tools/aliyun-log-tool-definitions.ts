@@ -69,7 +69,7 @@ export const listLogstoresToolConfig = {
 export const queryLogsToolConfig = {
   title: "查询日志",
   description:
-    "查询日志、SLS 日志、线上日志、服务日志；底层数据源是阿里云 SLS。用于线上故障排查、日常研发查日志、任意服务的报错日志查询、traceId/TID 链路日志查询。用户要求“查日志”“查询日志”“查 SLS”“查询 SLS”“查服务日志”“查线上日志”，或提到 test、staging 等环境，任意服务名/容器名的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
+    "查询日志、SLS 日志、线上日志、服务日志；底层数据源是阿里云 SLS。用于线上故障排查、日常研发查日志、任意服务的报错日志查询、traceId/TID 链路日志查询。用户要求“查日志”“查询日志”“查 SLS”“查询 SLS”“查服务日志”“查线上日志”，或提到 test、staging 等环境，任意服务名/容器名的日志，最近 N 分钟/小时报错日志，某个明确时间段的日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。用户说“最近 N 分钟/小时”时传 minutes；用户说明确时间段，例如“今天 14:00 到 15:00”“昨天晚上 8 点到 9 点”“2026-06-30 10:00 到 10:30”时，按 Asia/Shanghai 理解并换算成 Unix 秒级时间戳后传 from 和 to。也支持直接传 query 使用 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
   inputSchema: {
     environment: z
       .string()
@@ -117,18 +117,22 @@ export const queryLogsToolConfig = {
       .number()
       .int()
       .optional()
-      .describe("查询开始时间，Unix 秒级时间戳，需要和 to 同时传。"),
+      .describe(
+        "查询开始时间，Unix 秒级时间戳，需要和 to 同时传。用户说明确时间段时，按 Asia/Shanghai 换算后传这里。"
+      ),
     to: z
       .number()
       .int()
       .optional()
-      .describe("查询结束时间，Unix 秒级时间戳，需要和 from 同时传。"),
+      .describe(
+        "查询结束时间，Unix 秒级时间戳，需要和 from 同时传。用户说明确时间段时，按 Asia/Shanghai 换算后传这里。"
+      ),
     minutes: z
       .number()
       .int()
       .min(1)
       .optional()
-      .describe("查询最近多少分钟；不能和 from/to 同时传。"),
+      .describe("查询最近多少分钟；用户说“最近 N 分钟/小时”时传这里，小时需要换算成分钟；不能和 from/to 同时传。"),
     pageNumber: z
       .number()
       .int()
@@ -149,7 +153,7 @@ export const queryLogsToolConfig = {
 export const getHistogramsToolConfig = {
   title: "查询日志分布",
   description:
-    "查询日志分布、SLS 日志分布、线上日志趋势、服务日志趋势；底层数据源是阿里云 SLS。用于判断任意服务的报错是否突增、故障大概从什么时候开始、某个服务最近一段时间是否有 error/warn/info 日志。用户要求“看日志趋势”“查日志分布”“查 SLS 分布”“看报错趋势”“最近 N 分钟/小时每段时间多少错误”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用 SLS 查询语法。",
+    "查询日志分布、SLS 日志分布、线上日志趋势、服务日志趋势；底层数据源是阿里云 SLS。用于判断任意服务的报错是否突增、故障大概从什么时候开始、某个服务最近一段时间或某个明确时间段内是否有 error/warn/info 日志。用户要求“看日志趋势”“查日志分布”“查 SLS 分布”“看报错趋势”“最近 N 分钟/小时每段时间多少错误”“某个时间段的错误分布”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。用户说“最近 N 分钟/小时”时传 minutes；用户说明确时间段，例如“今天 14:00 到 15:00”“昨天晚上 8 点到 9 点”“2026-06-30 10:00 到 10:30”时，按 Asia/Shanghai 理解并换算成 Unix 秒级时间戳后传 from 和 to。也支持直接传 query 使用 SLS 查询语法。",
   inputSchema: {
     environment: z
       .string()
@@ -197,17 +201,21 @@ export const getHistogramsToolConfig = {
       .number()
       .int()
       .optional()
-      .describe("查询开始时间，Unix 秒级时间戳，需要和 to 同时传。"),
+      .describe(
+        "查询开始时间，Unix 秒级时间戳，需要和 to 同时传。用户说明确时间段时，按 Asia/Shanghai 换算后传这里。"
+      ),
     to: z
       .number()
       .int()
       .optional()
-      .describe("查询结束时间，Unix 秒级时间戳，需要和 from 同时传。"),
+      .describe(
+        "查询结束时间，Unix 秒级时间戳，需要和 from 同时传。用户说明确时间段时，按 Asia/Shanghai 换算后传这里。"
+      ),
     minutes: z
       .number()
       .int()
       .min(1)
       .optional()
-      .describe("查询最近多少分钟；不能和 from/to 同时传。")
+      .describe("查询最近多少分钟；用户说“最近 N 分钟/小时”时传这里，小时需要换算成分钟；不能和 from/to 同时传。")
   }
 };
