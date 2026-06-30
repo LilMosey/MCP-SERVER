@@ -339,7 +339,7 @@ npm start
 - `src/config/env.ts`：环境变量读取和校验。
 - `src/routes/health.ts`：健康检查路由。
 - `src/mcp-services/mysql-metadata`：MySQL 元数据 MCP 服务预留目录。
-- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前实现 `ListProject`、`ListLogStores` 和 `GetLogs`。
+- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前实现 `ListProject`、`ListLogStores` 和 `GetLogsV2`。
 
 ## Review TS 代码的建议流程
 

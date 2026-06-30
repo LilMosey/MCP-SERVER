@@ -1,5 +1,5 @@
-import { GetLogsRequest } from "@alicloud/sls20201230/dist/models/GetLogsRequest.js";
-import type { GetLogsResponse } from "@alicloud/sls20201230/dist/models/GetLogsResponse.js";
+import { GetLogsV2Request } from "@alicloud/sls20201230/dist/models/GetLogsV2request.js";
+import type { GetLogsV2Response } from "@alicloud/sls20201230/dist/models/GetLogsV2response.js";
 
 import { errorToLogFields, logger } from "../../utils/logger.js";
 import { createAliyunLogClient } from "./client.js";
@@ -330,7 +330,7 @@ function buildWarnings(query: string) {
 
   if (query.includes("|")) {
     warnings.push(
-      "当前 query 看起来包含分析语句；阿里云 GetLogs 对分析语句可能会忽略 line/offset，分页建议在 SQL 中使用 limit/offset。"
+      "当前 query 看起来包含分析语句；阿里云 GetLogsV2 对分析语句可能会忽略 line/offset，分页建议在 SQL 中使用 limit/offset。"
     );
   }
 
@@ -387,8 +387,8 @@ export async function queryLogs(
   const startedAt = Date.now();
 
   const client = createAliyunLogClient();
-  logger.info("Calling Aliyun Log GetLogs.", {
-    operation: "aliyun-log.getLogs",
+  logger.info("Calling Aliyun Log GetLogsV2.", {
+    operation: "aliyun-log.getLogsV2",
     environment: target.environment,
     projectName: target.projectName,
     logstoreName: target.logstoreName,
@@ -401,12 +401,12 @@ export async function queryLogs(
     offset
   });
 
-  let response: GetLogsResponse;
+  let response: GetLogsV2Response;
   try {
-    response = await client.getLogs(
+    response = await client.getLogsV2(
       target.projectName,
       target.logstoreName,
-      new GetLogsRequest({
+      new GetLogsV2Request({
         from,
         to,
         query,
@@ -416,8 +416,8 @@ export async function queryLogs(
       })
     );
   } catch (error) {
-    logger.error("Aliyun Log GetLogs failed.", {
-      operation: "aliyun-log.getLogs",
+    logger.error("Aliyun Log GetLogsV2 failed.", {
+      operation: "aliyun-log.getLogsV2",
       durationMs: Date.now() - startedAt,
       environment: target.environment,
       projectName: target.projectName,
@@ -434,7 +434,7 @@ export async function queryLogs(
     throw error;
   }
 
-  const logs = (response.body ?? []).map((log) =>
+  const logs = (response.body?.data ?? []).map((log) =>
     filterLogFields(log as Record<string, unknown>, returnFields)
   );
   const hasMore = logs.length === pageSize;
@@ -448,8 +448,8 @@ export async function queryLogs(
     reverse,
     hasMore
   );
-  logger.info("Aliyun Log GetLogs succeeded.", {
-    operation: "aliyun-log.getLogs",
+  logger.info("Aliyun Log GetLogsV2 succeeded.", {
+    operation: "aliyun-log.getLogsV2",
     durationMs: Date.now() - startedAt,
     environment: target.environment,
     projectName: target.projectName,
@@ -463,7 +463,7 @@ export async function queryLogs(
     offset,
     count: logs.length,
     hasMore,
-    progress: response.headers?.["x-log-progress"]
+    progress: response.body?.meta?.progress
   });
 
   return {
@@ -482,7 +482,7 @@ export async function queryLogs(
     },
     nextPage,
     count: logs.length,
-    progress: response.headers?.["x-log-progress"],
+    progress: response.body?.meta?.progress,
     warnings: buildWarnings(query),
     logs
   };

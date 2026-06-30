@@ -1,8 +1,8 @@
-# 阿里云日志 GetLogs MCP 分阶段计划
+# 阿里云日志 GetLogsV2 MCP 分阶段计划
 
 ## 目标
 
-基于阿里云日志服务 `GetLogs` API，提供可用于生产环境的 MCP 日志查询能力。整体目标不是简单透传接口，而是让大模型可以安全、稳定、分页地查询生产日志，并逐步支持常见排障场景。
+基于阿里云日志服务 `GetLogsV2` API，提供可用于生产环境的 MCP 日志查询能力。整体目标不是简单透传接口，而是让大模型可以安全、稳定、分页地查询生产日志，并逐步支持常见排障场景。
 
 ## 现状
 
@@ -14,19 +14,19 @@
 - Stateful session：支持 `mcp-session-id`
 - SSE 长连接：支持服务端 logging notification
 
-下一步要接入的是阿里云 `GetLogs` API。
+下一步要接入的是阿里云 `GetLogsV2` API。
 
 ## 总体原则
 
 - 生产环境必须限制单次返回量，但要支持分页继续查询。
 - 查询必须有明确的 Project、Logstore 和时间范围。
 - 普通非空查询默认最近 15 分钟，traceId 查询默认最近 7 天，最大时间范围通过配置控制。
-- 单页最多 100 条，符合 `GetLogs` 的 `line` 最大值。
+- 单页最多 100 条，符合 `GetLogsV2` 的 `line` 最大值。
 - 不直接把 SDK 原始响应丢给大模型，要整理成稳定结构。
 - 错误返回要标准化，方便定位权限、参数、索引、超时等问题。
 - 后续所有排障工具都复用底层 `queryLogs` 能力。
 
-## V1：生产可用的 GetLogs 查询底座
+## V1：生产可用的 GetLogsV2 查询底座
 
 ### 要做什么
 
@@ -343,7 +343,7 @@ aliyun_log_suggest_query_fields
 ## 推荐执行顺序
 
 1. 先实现 V1：`aliyun_log_query_logs`。
-2. 用真实 Project / Logstore 验证 GetLogs 权限、query 语法和分页。
+2. 用真实 Project / Logstore 验证 GetLogsV2 权限、query 语法和分页。
 3. 再实现 V2 的环境映射和查询语法规范化。
 4. 在生产环境开放前完成 V3 的白名单、审计和脱敏。
 5. 最后实现 V4 的聚合和诊断能力。
