@@ -174,7 +174,7 @@ export function createMcpServer() {
     {
       title: "查询阿里云日志",
       description:
-        "查询阿里云日志。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。常用查询字段：服务字段 _container_name_，日志级别字段 level，级别只有 info、warn、error，traceId 通常查 content。示例：(_container_name_: order-service or _container_name_: pay-service) and level: error；content: \"traceId\" and level: info。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
+        "查询阿里云日志。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。可以直接传 query，也可以传 containerNames、level、traceId、keywords 让服务端自动用 and 拼接最终 query。常用查询字段：服务字段 _container_name_，日志级别字段 level，级别只有 info、warn、error，traceId 通常查 content。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
       inputSchema: {
         environment: z
           .string()
@@ -192,8 +192,24 @@ export function createMcpServer() {
           .string()
           .optional()
           .describe(
-            "阿里云日志查询语句。服务查询示例：_container_name_: order-service；多服务：(_container_name_: order-service or _container_name_: pay-service)；错误日志：level: error；traceId：content: \"traceId\"。"
+            "阿里云日志查询语句。可以和结构化参数混用，最终会用 and 拼接，例如 query + level + containerNames。"
           ),
+        containerNames: z
+          .array(z.string())
+          .optional()
+          .describe("服务名列表/项目名列表，会拼成 _container_name_ 查询；多个服务用 or 包在括号里。"),
+        level: z
+          .enum(["info", "warn", "error"])
+          .optional()
+          .describe("日志级别，只支持 info、warn、error。"),
+        traceId: z
+          .string()
+          .optional()
+          .describe("traceId，会拼成 content: \"traceId\"。不传时间范围时，traceId 查询默认最近 7 天。"),
+        keywords: z
+          .array(z.string())
+          .optional()
+          .describe("内容关键字列表，每个关键字会拼成 content: \"keyword\"，多个关键字用 and 连接。"),
         from: z
           .number()
           .int()
@@ -235,6 +251,10 @@ export function createMcpServer() {
         projectName,
         logstoreName,
         query,
+        containerNames,
+        level,
+        traceId,
+        keywords,
         from,
         to,
         minutes,
@@ -253,6 +273,10 @@ export function createMcpServer() {
             projectName: projectName ?? null,
             logstoreName: logstoreName ?? null,
             query: query ?? null,
+            containerNames: containerNames ?? null,
+            level: level ?? null,
+            traceId: traceId ?? null,
+            keywords: keywords ?? null,
             pageNumber: pageNumber ?? 1
           }
         },
@@ -264,6 +288,10 @@ export function createMcpServer() {
         projectName,
         logstoreName,
         query,
+        containerNames,
+        level,
+        traceId,
+        keywords,
         from,
         to,
         minutes,

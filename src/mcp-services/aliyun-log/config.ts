@@ -145,6 +145,15 @@ export function readAliyunLogQueryConfig() {
       "ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES",
       5
     ),
+    traceDefaultQueryMinutes: readPositiveIntegerEnv(
+      "ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES",
+      10080
+    ),
+    traceMaxQueryMinutes: readPositiveIntegerEnv(
+      "ALIYUN_LOG_TRACE_MAX_QUERY_MINUTES",
+      10080
+    ),
+    traceMinLength: readPositiveIntegerEnv("ALIYUN_LOG_TRACE_MIN_LENGTH", 16),
     defaultPageSize: readPositiveIntegerEnv(
       "ALIYUN_LOG_DEFAULT_PAGE_SIZE",
       50

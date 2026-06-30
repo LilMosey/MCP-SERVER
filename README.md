@@ -58,6 +58,9 @@ ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},
 ALIYUN_LOG_DEFAULT_QUERY_MINUTES=15
 ALIYUN_LOG_MAX_QUERY_MINUTES=30
 ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
+ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES=10080
+ALIYUN_LOG_TRACE_MAX_QUERY_MINUTES=10080
+ALIYUN_LOG_TRACE_MIN_LENGTH=16
 ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
 ALIYUN_LOG_MAX_PAGE_SIZE=100
 ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content
@@ -132,7 +135,7 @@ curl "http://localhost:3000/aliyun-log/logs?environment=staging"
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
   --data-urlencode "environment=test" \
-  --data-urlencode "query=level: error" \
+  --data-urlencode "level=error" \
   --data-urlencode "minutes=5" \
   --data-urlencode "pageNumber=1" \
   --data-urlencode "pageSize=50"
@@ -143,7 +146,7 @@ curl --get "http://localhost:3000/aliyun-log/logs" \
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
   --data-urlencode "environment=test" \
-  --data-urlencode "query=(_container_name_: order-service or _container_name_: pay-service)" \
+  --data-urlencode "containerNames=order-service,pay-service" \
   --data-urlencode "minutes=5"
 ```
 
@@ -152,7 +155,8 @@ curl --get "http://localhost:3000/aliyun-log/logs" \
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
   --data-urlencode "environment=test" \
-  --data-urlencode "query=(_container_name_: order-service or _container_name_: pay-service) and level: error" \
+  --data-urlencode "containerNames=order-service,pay-service" \
+  --data-urlencode "level=error" \
   --data-urlencode "minutes=5"
 ```
 
@@ -161,17 +165,36 @@ curl --get "http://localhost:3000/aliyun-log/logs" \
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
   --data-urlencode "environment=test" \
-  --data-urlencode "query=content: \"b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053\"" \
-  --data-urlencode "minutes=15"
+  --data-urlencode "traceId=b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053"
 ```
+
+传 `traceId` 且不传 `from/to/minutes` 时，默认查最近 7 天，也就是 `ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES=10080`。
 
 查询 traceId 的某个日志级别：
 
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
   --data-urlencode "environment=test" \
-  --data-urlencode "query=content: \"b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053\" and level: info" \
-  --data-urlencode "minutes=15"
+  --data-urlencode "traceId=b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053" \
+  --data-urlencode "level=info"
+```
+
+`query` 可以和结构化参数混用，服务端会用 `and` 拼成最终查询语句。例如：
+
+```bash
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=TimeoutException" \
+  --data-urlencode "containerNames=order-service,pay-service" \
+  --data-urlencode "level=error" \
+  --data-urlencode "keywords=database,slow sql" \
+  --data-urlencode "minutes=5"
+```
+
+最终会拼成类似：
+
+```text
+(TimeoutException) and (_container_name_: order-service or _container_name_: pay-service) and level: error and content: "database" and content: "slow sql"
 ```
 
 分页查询第二页时，不要重新传 `minutes`。如果上一页返回了 `nextPage`，直接复用里面的 `from/to/query/pageSize/reverse`，只使用它给出的下一页页码。
@@ -299,7 +322,7 @@ npm run dev
 1. 传 `minutes`，表示查询最近 N 分钟。
 2. 同时传 `from` 和 `to`，表示查询固定 Unix 秒级时间范围。
 
-如果两种都不传，有 `query` 时默认查询最近 15 分钟；空查询时默认查询最近 5 分钟。空查询最大只允许查 5 分钟，避免一次性扫太多日志。
+如果两种都不传，有 `traceId` 时默认查询最近 7 天；有普通 `query` 或结构化服务/level/keyword 条件时默认查询最近 15 分钟；空查询时默认查询最近 5 分钟。空查询最大只允许查 5 分钟，避免一次性扫太多日志。
 
 ## 常用命令
 

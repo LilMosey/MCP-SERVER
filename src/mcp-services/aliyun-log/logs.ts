@@ -14,6 +14,10 @@ export interface QueryLogsOptions {
   projectName?: string;
   logstoreName?: string;
   query?: string;
+  containerNames?: string[];
+  level?: "info" | "warn" | "error";
+  traceId?: string;
+  keywords?: string[];
   from?: number;
   to?: number;
   minutes?: number;
@@ -59,6 +63,9 @@ interface QueryConfig {
   defaultQueryMinutes: number;
   maxQueryMinutes: number;
   emptyQueryMaxMinutes: number;
+  traceDefaultQueryMinutes: number;
+  traceMaxQueryMinutes: number;
+  traceMinLength: number;
   defaultPageSize: number;
   maxPageSize: number;
 }
@@ -89,6 +96,84 @@ function assertPositiveInteger(value: number, name: string) {
   }
 }
 
+function normalizeStringArray(values: string[] | undefined, name: string) {
+  if (!values) {
+    return [];
+  }
+
+  const normalizedValues = values.map((value) => value.trim()).filter(Boolean);
+  if (normalizedValues.length === 0) {
+    throw new Error(`${name} cannot be empty.`);
+  }
+
+  return normalizedValues;
+}
+
+function quoteContentValue(value: string) {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function buildContainerNameQuery(containerNames: string[]) {
+  if (containerNames.length === 0) {
+    return undefined;
+  }
+
+  const parts = containerNames.map(
+    (containerName) => `_container_name_: ${containerName}`
+  );
+
+  return parts.length === 1 ? parts[0] : `(${parts.join(" or ")})`;
+}
+
+function buildEffectiveQuery(options: QueryLogsOptions) {
+  const parts: string[] = [];
+  const query = options.query?.trim();
+  const containerNames = normalizeStringArray(
+    options.containerNames,
+    "containerNames"
+  );
+  const keywords = normalizeStringArray(options.keywords, "keywords");
+  const containerNameQuery = buildContainerNameQuery(containerNames);
+  const traceId = options.traceId?.trim();
+
+  if (query) {
+    parts.push(`(${query})`);
+  }
+
+  if (containerNameQuery) {
+    parts.push(containerNameQuery);
+  }
+
+  if (options.level) {
+    parts.push(`level: ${options.level}`);
+  }
+
+  if (traceId) {
+    parts.push(`content: ${quoteContentValue(traceId)}`);
+  }
+
+  for (const keyword of keywords) {
+    parts.push(`content: ${quoteContentValue(keyword)}`);
+  }
+
+  return parts.join(" and ");
+}
+
+function resolveTraceId(options: QueryLogsOptions, config: QueryConfig) {
+  const traceId = options.traceId?.trim();
+  if (!traceId) {
+    return undefined;
+  }
+
+  if (traceId.length < config.traceMinLength) {
+    throw new Error(
+      `traceId must be at least ${config.traceMinLength} characters.`
+    );
+  }
+
+  return traceId;
+}
+
 function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
   const hasFrom = options.from !== undefined;
   const hasTo = options.to !== undefined;
@@ -100,6 +185,7 @@ function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
 
   let from: number;
   let to: number;
+  const traceId = resolveTraceId(options, config);
 
   if (hasFrom || hasTo) {
     if (!hasFrom || !hasTo) {
@@ -111,10 +197,12 @@ function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
     assertInteger(from, "from");
     assertInteger(to, "to");
   } else {
-    const query = options.query?.trim() ?? "";
-    const defaultMinutes = query
-      ? config.defaultQueryMinutes
-      : Math.min(config.defaultQueryMinutes, config.emptyQueryMaxMinutes);
+    const query = buildEffectiveQuery(options);
+    const defaultMinutes = traceId
+      ? config.traceDefaultQueryMinutes
+      : query
+        ? config.defaultQueryMinutes
+        : Math.min(config.defaultQueryMinutes, config.emptyQueryMaxMinutes);
     const minutes = options.minutes ?? defaultMinutes;
     assertPositiveInteger(minutes, "minutes");
 
@@ -127,15 +215,17 @@ function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
   }
 
   const rangeMinutes = Math.ceil((to - from) / 60);
-  const query = options.query?.trim() ?? "";
-  const maxMinutes = query
-    ? config.maxQueryMinutes
-    : config.emptyQueryMaxMinutes;
+  const query = buildEffectiveQuery(options);
+  const maxMinutes = traceId
+    ? config.traceMaxQueryMinutes
+    : query
+      ? config.maxQueryMinutes
+      : config.emptyQueryMaxMinutes;
 
   if (rangeMinutes > maxMinutes) {
     throw new Error(
       `Query time range cannot exceed ${maxMinutes} minutes for ${
-        query ? "non-empty" : "empty"
+        traceId ? "traceId" : query ? "non-empty" : "empty"
       } query.`
     );
   }
@@ -290,7 +380,7 @@ export async function queryLogs(
   const target = resolveLogTarget(options);
   const config = readAliyunLogQueryConfig();
   const returnFields = readAliyunLogReturnFields();
-  const query = options.query?.trim() ?? "";
+  const query = buildEffectiveQuery(options);
   const { from, to } = resolveTimeRange(options, config);
   const { pageNumber, pageSize, offset } = resolvePage(options, config);
   const reverse = options.reverse ?? true;

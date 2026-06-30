@@ -14,6 +14,28 @@ function readNumberQuery(value: unknown) {
   return typeof value === "string" ? Number(value) : undefined;
 }
 
+function readStringArrayQuery(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) =>
+      typeof item === "string" ? item.split(",") : []
+    );
+  }
+
+  return typeof value === "string" ? value.split(",") : undefined;
+}
+
+function readLevelQuery(value: unknown) {
+  if (value !== "info" && value !== "warn" && value !== "error") {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    throw new Error("level must be one of: info, warn, error.");
+  }
+
+  return value;
+}
+
 function readBooleanQuery(value: unknown) {
   if (value === "true") {
     return true;
@@ -49,6 +71,10 @@ aliyunLogRouter.get("/logs", async (request, response, next) => {
     const result = await queryLogs({
       environment: readStringQuery(request.query.environment),
       query: readStringQuery(request.query.query),
+      containerNames: readStringArrayQuery(request.query.containerNames),
+      level: readLevelQuery(request.query.level),
+      traceId: readStringQuery(request.query.traceId),
+      keywords: readStringArrayQuery(request.query.keywords),
       from: readNumberQuery(request.query.from),
       to: readNumberQuery(request.query.to),
       minutes: readNumberQuery(request.query.minutes),
@@ -97,6 +123,10 @@ aliyunLogRouter.get(
         projectName: request.params.projectName,
         logstoreName: request.params.logstoreName,
         query: readStringQuery(request.query.query),
+        containerNames: readStringArrayQuery(request.query.containerNames),
+        level: readLevelQuery(request.query.level),
+        traceId: readStringQuery(request.query.traceId),
+        keywords: readStringArrayQuery(request.query.keywords),
         from: readNumberQuery(request.query.from),
         to: readNumberQuery(request.query.to),
         minutes: readNumberQuery(request.query.minutes),

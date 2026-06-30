@@ -20,7 +20,7 @@
 
 - 生产环境必须限制单次返回量，但要支持分页继续查询。
 - 查询必须有明确的 Project、Logstore 和时间范围。
-- 默认查询最近 15 分钟，最大时间范围通过配置控制。
+- 普通非空查询默认最近 15 分钟，traceId 查询默认最近 7 天，最大时间范围通过配置控制。
 - 单页最多 100 条，符合 `GetLogs` 的 `line` 最大值。
 - 不直接把 SDK 原始响应丢给大模型，要整理成稳定结构。
 - 错误返回要标准化，方便定位权限、参数、索引、超时等问题。
@@ -63,7 +63,7 @@ GET /aliyun-log/projects/:projectName/logstores/:logstoreName/logs
 - `projectName` 必填。
 - `logstoreName` 必填。
 - `from/to` 和 `minutes` 二选一。
-- 如果都不传，默认最近 15 分钟。
+- 如果都不传，普通非空查询默认最近 15 分钟，traceId 查询默认最近 7 天，空查询默认最近 5 分钟。
 - `pageNumber` 默认 1。
 - `pageSize` 默认 50，最大 100。
 - `reverse` 默认 `true`，优先返回最新日志。
@@ -76,6 +76,9 @@ GET /aliyun-log/projects/:projectName/logstores/:logstoreName/logs
 ALIYUN_LOG_DEFAULT_QUERY_MINUTES=15
 ALIYUN_LOG_MAX_QUERY_MINUTES=30
 ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
+ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES=10080
+ALIYUN_LOG_TRACE_MAX_QUERY_MINUTES=10080
+ALIYUN_LOG_TRACE_MIN_LENGTH=16
 ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
 ALIYUN_LOG_MAX_PAGE_SIZE=100
 ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content
@@ -108,7 +111,7 @@ ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,cont
 
 - 可以通过 HTTP 接口查询指定 Project + Logstore 的日志。
 - 可以通过 MCP 工具查询同样的数据。
-- 不传时间时默认最近 15 分钟。
+- 不传时间时，普通非空查询默认最近 15 分钟，traceId 查询默认最近 7 天，空查询默认最近 5 分钟。
 - `pageNumber/pageSize` 能正确转换成 `offset/line`。
 - 超过最大时间范围会返回明确错误。
 - 超过最大 `pageSize` 会返回明确错误。
@@ -201,6 +204,9 @@ content: "b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053" and level: inf
 ### 验收标准
 
 - `aliyun_log_query_logs` 支持只传 `environment + query`。
+- `aliyun_log_query_logs` 支持结构化查询参数：`containerNames`、`level`、`traceId`、`keywords`。
+- `query` 可以和结构化查询参数混用，服务端用 `and` 拼接最终 query。
+- 原始 `query` 会用括号包裹，避免和自动拼接条件出现优先级歧义。
 - 不传 `environment` 时默认查 `test`。
 - 传不存在的环境会返回明确错误，并列出允许的环境。
 - 可以继续用 `projectName + logstoreName` 做临时调试。
@@ -252,7 +258,58 @@ ALIYUN_LOG_AUDIT_ENABLED=true
 - 敏感字段不会原样返回给 MCP 客户端。
 - 查询超时有明确错误。
 
-## V4：诊断增强
+## V4：查询体验增强
+
+### 要做什么
+
+增强现有 `aliyun_log_query_logs`，不新增独立 query 构造工具。工具同时支持直接传 `query` 和结构化查询参数，由 MCP 服务自动拼接最终 query。
+
+结构化参数：
+
+```ts
+{
+  containerNames?: string[];
+  level?: "info" | "warn" | "error";
+  traceId?: string;
+  keywords?: string[];
+}
+```
+
+拼接规则：
+
+- `query`：如果传了，会被包成 `(query)`。
+- `containerNames`：一个服务拼成 `_container_name_: service`；多个服务拼成 `(_container_name_: service1 or _container_name_: service2)`。
+- `level`：拼成 `level: error`。
+- `traceId`：拼成 `content: "traceId"`。
+- `keywords`：每个关键字拼成 `content: "keyword"`，多个关键字之间用 `and`。
+- 所有条件最终用 `and` 连接。
+
+示例：
+
+```json
+{
+  "query": "TimeoutException",
+  "containerNames": ["order-service", "pay-service"],
+  "level": "error",
+  "keywords": ["database", "slow sql"]
+}
+```
+
+最终 query：
+
+```text
+(TimeoutException) and (_container_name_: order-service or _container_name_: pay-service) and level: error and content: "database" and content: "slow sql"
+```
+
+### 验收标准
+
+- 简单服务查询可以只传 `containerNames`。
+- 错误日志查询可以只传 `containerNames + level`。
+- trace 查询可以只传 `traceId`，可叠加 `level`。
+- 高级查询仍可直接传 `query`，并能和结构化参数混用。
+- `nextPage.query` 返回最终拼接后的 query，翻页时不需要重新拼接。
+
+## V5：诊断增强
 
 ### 要做什么
 
