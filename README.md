@@ -173,6 +173,8 @@ curl http://localhost:3000/health
 ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-dev","logstoreName":"staging"}}
 ```
 
+MCP 工具描述会在服务启动时读取这里配置的环境名，并提示 Agent 当前可用环境和默认环境。修改 `ALIYUN_LOG_ENVIRONMENTS` 后，需要重启服务并让 MCP 客户端重新连接，客户端才能拿到新的工具描述。
+
 `ALIYUN_LOG_RETURN_FIELDS` 示例：
 
 ```bash

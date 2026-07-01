@@ -1,11 +1,58 @@
 import { z } from "zod/v4";
 
+import { readAliyunLogEnvironmentConfig } from "../mcp-services/aliyun-log/config.js";
+
 export const aliyunLogToolNames = {
   listProjects: "aliyun_log_list_projects",
   listLogstores: "aliyun_log_list_logstores",
   queryLogs: "aliyun_log_query_logs",
   getHistograms: "aliyun_log_get_histograms"
 } as const;
+
+function buildConfiguredEnvironmentHint() {
+  try {
+    const { defaultEnvironment, environments } = readAliyunLogEnvironmentConfig();
+    const environmentNames = Object.keys(environments).sort();
+    const environmentList = environmentNames.join("、");
+    const hints: string[] = [];
+    const testEnvironment = ["test", "testing", "dev", "development"].find(
+      (environment) => environmentNames.includes(environment)
+    );
+    const stagingEnvironment = ["staging", "stage", "pre", "uat"].find(
+      (environment) => environmentNames.includes(environment)
+    );
+    const productionEnvironment = [
+      "prod",
+      "production",
+      "prd",
+      "online"
+    ].find((environment) => environmentNames.includes(environment));
+
+    if (testEnvironment) {
+      hints.push(`用户说“测试环境”时优先传 ${testEnvironment}`);
+    }
+
+    if (stagingEnvironment) {
+      hints.push(`用户说“预发/staging 环境”时优先传 ${stagingEnvironment}`);
+    }
+
+    if (productionEnvironment) {
+      hints.push(
+        `用户说“生产环境/线上环境”时优先传 ${productionEnvironment}`
+      );
+    }
+
+    return `当前配置可用环境：${environmentList}。默认环境：${defaultEnvironment}。environment 必须优先从这些值中选择。${hints.join("；")}。`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return `当前环境配置读取失败：${message}。可以直接传 projectName + logstoreName 调试。`;
+  }
+}
+
+function appendEnvironmentHint(description: string) {
+  return `${description} ${buildConfiguredEnvironmentHint()}`;
+}
 
 export const listProjectsToolConfig = {
   title: "查询阿里云日志 Project",
@@ -150,6 +197,13 @@ export const queryLogsToolConfig = {
   }
 };
 
+export function createQueryLogsToolConfig() {
+  return {
+    ...queryLogsToolConfig,
+    description: appendEnvironmentHint(queryLogsToolConfig.description)
+  };
+}
+
 export const getHistogramsToolConfig = {
   title: "查询日志分布",
   description:
@@ -219,3 +273,10 @@ export const getHistogramsToolConfig = {
       .describe("查询最近多少分钟；用户说“最近 N 分钟/小时”时传这里，小时需要换算成分钟；不能和 from/to 同时传。")
   }
 };
+
+export function createGetHistogramsToolConfig() {
+  return {
+    ...getHistogramsToolConfig,
+    description: appendEnvironmentHint(getHistogramsToolConfig.description)
+  };
+}

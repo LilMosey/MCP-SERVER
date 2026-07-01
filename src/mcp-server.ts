@@ -6,10 +6,10 @@ import { queryLogs } from "./mcp-services/aliyun-log/logs.js";
 import { listProjects } from "./mcp-services/aliyun-log/projects.js";
 import {
   aliyunLogToolNames,
-  getHistogramsToolConfig,
+  createGetHistogramsToolConfig,
+  createQueryLogsToolConfig,
   listLogstoresToolConfig,
-  listProjectsToolConfig,
-  queryLogsToolConfig
+  listProjectsToolConfig
 } from "./mcp-tools/aliyun-log-tool-definitions.js";
 
 export function registerAliyunLogTools(server: McpServer) {
@@ -112,7 +112,7 @@ export function registerAliyunLogTools(server: McpServer) {
 
     queryLogs: server.registerTool(
       aliyunLogToolNames.queryLogs,
-      queryLogsToolConfig,
+      createQueryLogsToolConfig(),
       async (
         {
           environment,
@@ -197,7 +197,7 @@ export function registerAliyunLogTools(server: McpServer) {
 
     getHistograms: server.registerTool(
       aliyunLogToolNames.getHistograms,
-      getHistogramsToolConfig,
+      createGetHistogramsToolConfig(),
       async (
         {
           environment,
