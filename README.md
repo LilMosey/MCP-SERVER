@@ -29,23 +29,6 @@
 <img width="1788" height="1272" alt="image" src="https://github.com/user-attachments/assets/61270e82-42c5-47be-8730-b2977ce6e041" />
 
 
-典型对话效果：
-
-```text
-用户：帮我查询 staging 环境 user-service 最近 30 分钟的 error 日志
-Agent：查询到 3 条错误日志，主要集中在 14:21-14:24，错误信息为 ...
-```
-
-```text
-用户：帮我看 staging 环境 user-service 最近 2 小时 error 日志分布，判断有没有突增
-Agent：最近 2 小时共 128 条 error，14:30-14:40 出现明显峰值，建议继续查询该时间段错误明细。
-```
-
-```text
-用户：帮我查询这个 traceId 的链路日志：b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053
-Agent：已查询到 gateway、user-service、order-service 相关日志，调用链路大致为 ...
-```
-
 ## 功能特性
 
 - 查询当前账号可访问的 SLS Project
